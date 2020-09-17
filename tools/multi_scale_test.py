@@ -1,8 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
-# Set up custom environment before nearly anything else is imported
-# NOTE: this should be the first import (no not reorder)
-from maskrcnn_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
-
 import argparse
 import os
 
@@ -11,6 +6,7 @@ from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
 from maskrcnn_benchmark.engine.inference import inference
 from maskrcnn_benchmark.modeling.detector import build_detection_model
+from maskrcnn_benchmark.modeling.detector.multi_scale_wrapper import MultiScaleRetinaNet
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
 from maskrcnn_benchmark.utils.comm import synchronize, get_rank
@@ -22,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description="PyTorch Object Detection Inference")
     parser.add_argument(
         "--config-file",
-        default="configs/free_anchor_R-50-FPN_8gpu_1x.yaml",
+        default="configs/free_anchor_X-101-FPN_j2x.yaml",
         metavar="FILE",
         help="path to config file",
     )
@@ -47,6 +43,7 @@ def main():
 
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+    cfg.merge_from_list(['TEST.IMS_PER_BATCH', num_gpus])
     cfg.freeze()
 
     save_dir = ""
@@ -57,7 +54,7 @@ def main():
     logger.info("Collecting env info (might take some time)")
     logger.info("\n" + collect_env_info())
 
-    model = build_detection_model(cfg)
+    model = MultiScaleRetinaNet(build_detection_model(cfg), cfg.TEST.MULTI_SCLAES)
     model.to(cfg.MODEL.DEVICE)
 
     checkpointer = DetectronCheckpointer(cfg, model)
